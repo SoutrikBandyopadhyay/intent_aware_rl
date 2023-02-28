@@ -1,28 +1,35 @@
-#[macro_use]
-extern crate derive_builder;
+// #[macro_use]
+// extern crate derive_builder;
 
-#[derive(Builder)]
-pub struct IntentRL {
-    alpha: f64, //Learning Rate
-    beta: f64,  //Learning Rate
-    f: f64,     //Goal update frequency
-}
+// #[derive(Builder)]
+// pub struct IntentRL {
+//     alpha: f64, //Learning Rate
+//     beta: f64,  //Learning Rate
+//     f: f64,     //Goal update frequency
+// }
 
 pub trait Distance {
-    type State;
-    fn distance(&self, other: &Self::State) -> f64;
+    fn distance(&self, other: &Self) -> f64;
 }
 
 impl Distance for f64 {
-    type State = f64;
-
-    fn distance(&self, other: &Self::State) -> f64 {
+    fn distance(&self, other: &Self) -> f64 {
         (self - other).abs()
     }
 }
 
+impl<const N: usize> Distance for [f64; N] {
+    fn distance(&self, other: &Self) -> f64 {
+        self.iter()
+            .zip(other.iter())
+            .map(|(a, b)| (a - b).powi(2))
+            .sum::<f64>()
+            .sqrt()
+    }
+}
+
 //Adapted from https://towardsdatascience.com/dynamic-time-warping-3933f25fcdd
-pub fn dtw_distance<T: Distance<State = T>>(s: &Vec<T>, t: &Vec<T>) -> f64 {
+pub fn dtw_distance<T: Distance>(s: &Vec<T>, t: &Vec<T>) -> f64 {
     //Create a 2D matrix to store the DTW values
     let n = s.len();
     let m = t.len();
@@ -41,6 +48,8 @@ pub fn dtw_distance<T: Distance<State = T>>(s: &Vec<T>, t: &Vec<T>) -> f64 {
     }
     return dtw[n][m];
 }
+
+// fn probability_h_given_g() -> i32 {}
 
 #[cfg(test)]
 mod tests {
@@ -69,6 +78,14 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0];
         let b = vec![2.0, 2.0, 2.0, 3.0, 4.0];
         let expected = 2.0;
+        let ans = dtw_distance(&a, &b);
+        assert!(relative_eq!(expected, ans, epsilon = f64::EPSILON));
+    }
+    #[test]
+    fn dtw_distance_test_vector() {
+        let a = vec![[1.0, 2.0], [2.0, 3.0], [3.0, 4.0]];
+        let b = vec![[1.0, 2.0], [2.0, 3.0], [3.0, 4.0], [10.0, 10.0]];
+        let expected = 9.219544457292887;
         let ans = dtw_distance(&a, &b);
         assert!(relative_eq!(expected, ans, epsilon = f64::EPSILON));
     }
