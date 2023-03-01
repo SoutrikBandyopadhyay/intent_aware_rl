@@ -1,12 +1,56 @@
-// #[macro_use]
-// extern crate derive_builder;
+#![allow(dead_code, unused_variables)]
+#[macro_use]
+extern crate derive_builder;
 
-// #[derive(Builder)]
-// pub struct IntentRL {
-//     alpha: f64, //Learning Rate
-//     beta: f64,  //Learning Rate
-//     f: f64,     //Goal update frequency
-// }
+use nalgebra::*;
+
+// use nalgebra::OMatrix;
+
+#[derive(Debug, Builder)]
+pub struct IntentRL<const M: usize, const NM: usize, const D: usize> {
+    #[builder(default = "0.1")]
+    alpha: f64, //Learning Rate
+    #[builder(default = "0.2")]
+    beta: f64, //Learning Rate
+    #[builder(default = "10.0")]
+    goal_update_freq: f64, //Goal update frequency
+    goals: Vec<SVector<f64, D>>,
+    theta: SMatrix<f64, M, NM>,
+    init_state: SVector<f64, D>,
+    init_human_state: SVector<f64, D>,
+    prior_probability: SVector<f64, M>,
+    #[builder(default = "0.0")]
+    r_bar: f64,
+}
+
+impl<const M: usize, const NM: usize, const D: usize> IntentRL<M, NM, D> {
+    pub fn regressor(&self, history: &Vec<SVector<f64, D>>) -> SMatrix<f64, NM, M> {
+        let mut ans = SMatrix::<f64, NM, M>::zeros();
+        for i in 0..M {
+            ans[(i, i)] = 1.0;
+        }
+
+        println!("{}", self.theta);
+        println!("{}", ans);
+        //Assume agent 1 is my agent
+
+        // let mut goal_history = history.clone();
+        // goal_history.push(goal);
+        ans
+    }
+
+    pub fn q_function(&self, history: &Vec<SVector<f64, D>>) -> SVector<f64, M> {
+        (self.theta * self.regressor(history)).diagonal()
+    }
+
+    pub fn simulate(&mut self) {
+        let mut x = self.init_state.clone();
+        for i in 0..1000 {
+            x += -0.01 * x;
+            // dbg!(x);
+        }
+    }
+}
 
 pub trait Distance {
     fn distance(&self, other: &Self) -> f64;
@@ -28,13 +72,21 @@ impl<const N: usize> Distance for [f64; N] {
     }
 }
 
+impl<const N: usize> Distance for SVector<f64, N> {
+    fn distance(&self, other: &Self) -> f64 {
+        (self - other).map(|a| a.powi(2)).sum().sqrt()
+    }
+}
 //Adapted from https://towardsdatascience.com/dynamic-time-warping-3933f25fcdd
 pub fn dtw_distance<T: Distance>(s: &Vec<T>, t: &Vec<T>) -> f64 {
-    //Create a 2D matrix to store the DTW values
+    //Obtain length of the two vectors
     let n = s.len();
     let m = t.len();
 
+    //Create a 2D matrix to store the DTW values and fill it with positive infinity
     let mut dtw: Vec<Vec<f64>> = vec![vec![f64::INFINITY; m + 1]; n + 1];
+
+    //The first element is set to 0
     dtw[0][0] = 0.0;
     for i in 1..n + 1 {
         for j in 1..m + 1 {
@@ -46,7 +98,7 @@ pub fn dtw_distance<T: Distance>(s: &Vec<T>, t: &Vec<T>) -> f64 {
             dtw[i][j] = cost + last_min;
         }
     }
-    return dtw[n][m];
+    dtw[n][m]
 }
 
 // fn probability_h_given_g() -> i32 {}
